@@ -26,6 +26,9 @@ def download_ibge_data(**kwargs):
         'Unnamed: 3':'NOME', 
         'Unnamed: 4':'POPULACAO_ESTIMADA', 
         }, inplace=True)
+    
+    df['chave_ibge'] = df['COD_MUNIC'].astype(str).str[:-1]
+    df = df.dropna(subset=['COD. UF'])
     print(df.columns)
 
     # Salvar no XCom
@@ -52,7 +55,7 @@ def extract_csv_to_dataframe1(**kwargs):
                 df = pd.read_csv(csv_file, encoding='latin1', sep=';')
         else:
             raise FileNotFoundError(f"Arquivo {csv_path} não encontrado no ZIP")
-    
+    df = df.dropna(subset=['chave_ibge'])
     # Salvar no XCom
     kwargs['ti'].xcom_push(key='censo_dataframe', value=df.to_dict())
     
@@ -77,6 +80,9 @@ def extract_csv_to_dataframe2(**kwargs):
         on_bad_lines='skip'
     )
     
+    df['chave_ibge'] = df['ibge'].astype(str).str[2:]
+    df = df.dropna(subset=['chave_ibge'])
+
     # Salvar no XCom
     kwargs['ti'].xcom_push(key='cras_dataframe', value=df.to_dict())
     
@@ -98,10 +104,12 @@ def extract_dtb_to_dataframe(**kwargs):
                 df = pd.read_excel(excel_file, skiprows=6)
         else:
             raise FileNotFoundError(f"Arquivo {excel_path} não encontrado no ZIP")
+    df['chave_ibge'] = df['Código Município Completo'].astype(str).str[2:-1]
     
     # Salvar no XCom
     kwargs['ti'].xcom_push(key='dtb_dataframe', value=df.to_dict())
     
+
     # Opcional: Exibir as primeiras linhas para verificação
     print(df.head())
     

@@ -5,6 +5,7 @@ import sys
 import os
 sys.path.append(f'{os.getcwd()}/')
 from scripts.extract import *
+from scripts.quality_tests import run_tests
 
 default_args = {
     'owner': 'jetsales',
@@ -53,13 +54,6 @@ with DAG(
         provide_context=True,
     )
     
-    load_censo_task = PythonOperator(
-        task_id='load_censo_to_postgres',
-        python_callable=load_to_postgres,
-        op_kwargs={'table_name': 'censo_escolar', 'xcom_key': 'censo_dataframe'},
-        provide_context=True,
-    )
-    
     load_cras_task = PythonOperator(
         task_id='load_cras_to_postgres',
         python_callable=load_to_postgres,
@@ -74,8 +68,14 @@ with DAG(
         provide_context=True,
     )
     
-    # Definir dependências
+    test_data_task = PythonOperator(
+        task_id='run_data_tests',
+        python_callable=run_tests,
+    )
+
+    # Dependências
     extract_ibge_task >> load_ibge_task
-    extract_censo_task >> load_censo_task
     extract_cras_task >> load_cras_task
     extract_dtb_task >> load_dtb_task
+
+    [load_ibge_task, load_cras_task, load_dtb_task] >> test_data_task
