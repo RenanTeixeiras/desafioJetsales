@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   postgres:
     image: postgres:13
@@ -9,35 +8,67 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5444:5444"
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow", "-d", "airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
   airflow-webserver:
-    image: apache/airflow:2.7.3
+    image: apache/airflow:2.7.3-python3.11
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "your-secure-secret-key-here"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
       - ./sql:/opt/airflow/sql
+      - ./requirements.txt:/opt/airflow/requirements.txt
     ports:
       - "8080:8080"
-    command: webserver
+    command: airflow webserver
+    restart: unless-stopped
 
   airflow-scheduler:
-    image: apache/airflow:2.7.3
+    image: apache/airflow:2.7.3-python3.11
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "your-secure-secret-key-here"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
       - ./sql:/opt/airflow/sql
-    command: scheduler
+      - ./requirements.txt:/opt/airflow/requirements.txt
+    command: airflow scheduler
+
+  airflow-init:
+    image: apache/airflow:2.7.3-python3.11
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: "your-secure-secret-key-here"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+      - ./sql:/opt/airflow/sql
+      - ./requirements.txt:/opt/airflow/requirements.txt
+    command: >
+      airflow db init && airflow users create --username airflow --firstname Airflow --lastname User --role Admin --email admin@example.com --password airflow
 
 volumes:
   postgres_data:
